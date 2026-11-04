@@ -1,6 +1,25 @@
+import os
+from flask import Flask
+from threading import Thread
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+
+
+# --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running 24/7!"
+
+def run():
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
 
 
 # --- MA'LUMOTLAR BAZASI BILAN ISHLASH ---
@@ -62,7 +81,6 @@ def get_main_menu(user_id, admin_id):
 # --- 1. /START BUYRUG'I ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    # Admin ID raqamini shu yerga yozasiz (o'zingizning Telegram ID'ingizni qo'ying)
     ADMIN_ID = 123456789  # <-- O'z Telegram ID raqamingizni yozing!
 
     await update.message.reply_text(
@@ -72,7 +90,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# --- 2. MATNLI XABARLAR VA BO'LIMLAR (SHARTLAR) ---
+# --- 2. MATNli XABARLAR VA BO'LIMLAR (SHARTLAR) ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
@@ -120,7 +138,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Bizning online do'kon eng sifatli texnika va gadjetlarni eng qulay narxlarda taqdim etadi! 🏢")
 
     elif text == "📞 Admin bilan bog'lanish":
-        await update.message.reply_text("Savollar bo'yicha adalinga murojaat qiling: @admin_username")
+        await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: @admin_username")
 
     elif text == "🛠 Admin Panel" and user_id == ADMIN_ID:
         await update.message.reply_text("Xush kelibsiz, Admin! Bu yerda do'konni boshqarishingiz mumkin.")
@@ -169,7 +187,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         conn = sqlite3.connect("shop.db")
         cursor = conn.cursor()
-        # Oldindan bormi tekshiramiz
         cursor.execute("SELECT quantity FROM cart WHERE user_id = ? AND product_id = ?", (user_id, prod_id))
         item = cursor.fetchone()
         if item:
@@ -188,15 +205,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- ASOSIY QISM ---
 if __name__ == '__main__':
-    # Tokeningizni shu yerga yozasiz
+    # Flask veb-serverni fonda ishga tushiramiz (Render port talabini qondirish uchun)
+    keep_alive()
+
+    # Tokeningiz
     TOKEN = "8569615512:AAEz4pDDF5rFL3bpw3IfuOCTDNY49jjItEI"
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    app_bot = ApplicationBuilder().token(TOKEN).build()
 
     # Handlers (Ulovchilar)
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CallbackQueryHandler(button_handler))
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("Online Do'kon boti muvaffaqiyatli ishga tushdi...")
-    app.run_polling()
+    app_bot.run_polling()
