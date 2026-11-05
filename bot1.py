@@ -7,7 +7,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 
 
 # --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
-app = Flask('')
+app = Flask('__name__')
 
 @app.route('/')
 def home():
