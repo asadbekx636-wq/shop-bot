@@ -138,7 +138,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "ℹ️ Biz haqimizda":
         await update.message.reply_text(
-            "Bizning online do'kon eng sifatli texnika va gadjetlarni eng qulay narxlarda taqdim etadi! 🏢"
+            "Salom! Men dasturlashni boshlayotgan boshlovchiman. Hozir Python tilini o'rganayapmman. Savollarimga juda oddiy va tushunarli tilda, hayotiy misollar bilan javob bersang.🏢"
         )
 
     elif text == "📞 Admin bilan bog'lanish":
