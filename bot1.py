@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKe
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
 # --- SOZLAMALAR VA ADMIN ID ---
-ADMIN_ID = 123456789  # <--- O'z Telegram ID raqamingizni shu yerga yozing!
+ADMIN_ID = 7161851696  # <--- O'z Telegram ID raqamingizni shu yerga yozing!
 
 # --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
 app = Flask(__name__)
