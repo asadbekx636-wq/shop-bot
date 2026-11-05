@@ -148,7 +148,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Xush kelibsiz, Admin! Bu yerda do'konni boshqarishingiz mumkin.")
 
     else:
-        await update.message.reply_text(f"Siz yozdingiz: '{text}'. Iltimos, menyudagi tugmalardan foydalaning! 😊")
+        await update.message.reply_text(f"Siz yozdingiz: '{text}'. Sizda hozircha hech qanday buyurtma yo'q. 😊")
 
 
 # --- 3. TUGMALAR (INLINE) BILAN ISHLASH ---
