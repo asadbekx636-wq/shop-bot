@@ -5,6 +5,8 @@ import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
+# --- SOZLAMALAR VA ADMIN ID ---
+ADMIN_ID = 123456789  # <--- O'z Telegram ID raqamingizni shu yerga yozing!
 
 # --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
 app = Flask(__name__)
@@ -56,24 +58,25 @@ def init_db():
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO categories (name) VALUES ('Telefonlar'), ('Noutbuklar')")
         cursor.execute(
-            "INSERT INTO products (category_id, name, price, description) VALUES (1, 'iPhone 15 Pro', 12000000, 'Yangi holatda, 256GB')")
+            "INSERT INTO products (category_id, name, price, description) VALUES (1, 'iPhone 15 Pro', 12000000, 'Yangi holatda, 256GB')"
+        )
         cursor.execute(
-            "INSERT INTO products (category_id, name, price, description) VALUES (2, 'MacBook Air M2', 14000000, 'Tezkor va yengil')")
+            "INSERT INTO products (category_id, name, price, description) VALUES (2, 'MacBook Air M2', 14000000, 'Tezkor va yengil')"
+        )
     conn.commit()
     conn.close()
-
 
 init_db()
 
 
 # --- ASOSIY MENYU (Tugmalar) ---
-def get_main_menu(user_id, admin_id):
+def get_main_menu(user_id):
     keyboard = [
         [KeyboardButton("🛍 Do'kon"), KeyboardButton("🛒 Savatcham")],
         [KeyboardButton("📋 Buyurtmalarim"), KeyboardButton("ℹ️ Biz haqimizda")],
         [KeyboardButton("📞 Admin bilan bog'lanish")]
     ]
-    if user_id == admin_id:
+    if user_id == ADMIN_ID:
         keyboard.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -81,12 +84,10 @@ def get_main_menu(user_id, admin_id):
 # --- 1. /START BUYRUG'I ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    ADMIN_ID = 123456789  # <-- O'z Telegram ID raqamingizni yozing!
-
     await update.message.reply_text(
         f"Assalomu alaykum, {user.first_name}! Online Do'konimizga xush kelibsiz. 🚀\n"
         "Kerakli bo'limni pastdagi tugmalar orqali tanlang:",
-        reply_markup=get_main_menu(user.id, ADMIN_ID)
+        reply_markup=get_main_menu(user.id)
     )
 
 
@@ -94,7 +95,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
-    ADMIN_ID = 123456789  # <-- O'z Telegram ID raqamingizni yozing!
 
     if text == "🛍 Do'kon":
         conn = sqlite3.connect("shop.db")
@@ -130,12 +130,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text_msg += f"\n**Umumiy summa:** {total:,.0f} so'm"
 
             keyboard = [[InlineKeyboardButton("✅ Buyurtmani rasmiylashtirish", callback_data="checkout")]]
-            await update.message.reply_text(text_msg, reply_markup=InlineKeyboardMarkup(keyboard),
-                                            parse_mode="Markdown")
+            await update.message.reply_text(
+                text_msg, 
+                reply_markup=InlineKeyboardMarkup(keyboard), 
+                parse_mode="Markdown"
+            )
 
     elif text == "ℹ️ Biz haqimizda":
         await update.message.reply_text(
-            "Bizning online do'kon eng sifatli texnika va gadjetlarni eng qulay narxlarda taqdim etadi! 🏢")
+            "Bizning online do'kon eng sifatli texnika va gadjetlarni eng qulay narxlarda taqdim etadi! 🏢"
+        )
 
     elif text == "📞 Admin bilan bog'lanish":
         await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: @admin_username")
@@ -165,8 +169,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("Bu kategoriyada hozircha mahsulot yo'q.")
             return
 
-        keyboard = [[InlineKeyboardButton(f"{p[1]} — {p[2]:,.0f} so'm", callback_data=f"prod_{p[0]}")] for p in
-                    products]
+        keyboard = [[InlineKeyboardButton(f"{p[1]} — {p[2]:,.0f} so'm", callback_data=f"prod_{p[0]}")] for p in products]
         await query.edit_message_text("Mahsulotni tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data.startswith("prod_"):
@@ -190,8 +193,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("SELECT quantity FROM cart WHERE user_id = ? AND product_id = ?", (user_id, prod_id))
         item = cursor.fetchone()
         if item:
-            cursor.execute("UPDATE cart SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ?",
-                           (user_id, prod_id))
+            cursor.execute("UPDATE cart SET quantity = quantity + 1 WHERE user_id = ? AND product_id = ?", (user_id, prod_id))
         else:
             cursor.execute("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, 1)", (user_id, prod_id))
         conn.commit()
