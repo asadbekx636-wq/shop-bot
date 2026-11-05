@@ -142,7 +142,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif text == "📞 Admin bilan bog'lanish":
-        await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: @admin_username")
+        await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: Tel:9986194040")
 
     elif text == "🛠 Admin Panel" and user_id == ADMIN_ID:
         await update.message.reply_text("Xush kelibsiz, Admin! Bu yerda do'konni boshqarishingiz mumkin.")
