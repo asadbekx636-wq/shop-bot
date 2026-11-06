@@ -3,10 +3,13 @@ from flask import Flask
 from threading import Thread
 import sqlite3
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters
 
 # --- SOZLAMALAR VA ADMIN ID ---
-ADMIN_ID = 7161851696  # <--- O'z Telegram ID raqamingizni shu yerga yozing!
+ADMIN_ID = 7161851696  # <--- O'z Telegram ID raqamingizni shu yerga yozing! (Faqat raqam)
+
+# Rassilka uchun bosqich (State)
+BROADCAST = 1
 
 # --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
 app = Flask(__name__)
@@ -53,6 +56,12 @@ def init_db():
             quantity INTEGER
         )
     """)
+    # Foydalanuvchilar jadvali (Statistika va Rassilka uchun)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY
+        )
+    """)
     # Dastlabki ma'lumotlar (agar bo'sh bo'lsa)
     cursor.execute("SELECT COUNT(*) FROM categories")
     if cursor.fetchone()[0] == 0:
@@ -80,10 +89,26 @@ def get_main_menu(user_id):
         keyboard.append([KeyboardButton("🛠 Admin Panel")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
+# --- ADMIN PANEL MENYUSI ---
+def get_admin_menu():
+    keyboard = [
+        [KeyboardButton("👥 Statistika"), KeyboardButton("📢 Xabar yuborish")],
+        [KeyboardButton("🔙 Asosiy menyu")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 
 # --- 1. /START BUYRUG'I ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
+    
+    # Foydalanuvchini bazaga saqlab qo'yamiz (takrorlanmaydigan qilib)
+    conn = sqlite3.connect("shop.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user.id,))
+    conn.commit()
+    conn.close()
+
     await update.message.reply_text(
         f"Assalomu alaykum, {user.first_name}! Online Do'konimizga xush kelibsiz. 🚀\n"
         "Kerakli bo'limni pastdagi tugmalar orqali tanlang:",
@@ -145,13 +170,78 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: Tel:9986194040")
 
     elif text == "🛠 Admin Panel" and user_id == ADMIN_ID:
-        await update.message.reply_text("Xush kelibsiz, Admin! Bu yerda do'konni boshqarishingiz mumkin.")
+        await update.message.reply_text("Xush kelibsiz, Admin! Kerakli bo'limni tanlang:", reply_markup=get_admin_menu())
+
+    elif text == "👥 Statistika" and user_id == ADMIN_ID:
+        conn = sqlite3.connect("shop.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM products")
+        total_products = cursor.fetchone()[0]
+        conn.close()
+
+        await update.message.reply_text(
+            f"📊 **Bot statistikasi:**\n\n"
+            f"👥 Jami foydalanuvchilar: {total_users} ta\n"
+            f"📦 Jami mahsulotlar: {total_products} ta",
+            parse_mode="Markdown"
+        )
+
+    elif text == "📢 Xabar yuborish" and user_id == ADMIN_ID:
+        await update.message.reply_text("Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni yuboring (matn, rasm yoki video):", reply_markup=get_admin_menu())
+        return BROADCAST
+
+    elif text == "🔙 Asosiy menyu":
+        await update.message.reply_text("Asosiy menyuga qaytdingiz:", reply_markup=get_main_menu(user_id))
 
     else:
-        await update.message.reply_text(f"Siz yozdingiz: '{text}'. Sizda hozircha hech qanday buyurtma yo'q. 😊")
+        await update.message.reply_text(f"Siz yozdingiz: '{text}'. 😊", reply_markup=get_main_menu(user_id))
+
+    return ConversationHandler.END
 
 
-# --- 3. TUGMALAR (INLINE) BILAN ISHLASH ---
+# --- 3. RASSILKA (XABAR TARQATISH) JARAYONI ---
+async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return ConversationHandler.END
+
+    conn = sqlite3.connect("shop.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    conn.close()
+
+    success = 0
+    fail = 0
+
+    status_msg = await update.message.reply_text("⏳ Xabar tarqatilmoqda, iltimos kuting...")
+
+    for row in users:
+        u_id = row[0]
+        try:
+            await update.message.copy_to(chat_id=u_id)
+            success += 1
+        except Exception:
+            fail += 1
+
+    await status_msg.edit_text(
+        f"✅ **Rassilka yakunlandi!**\n\n"
+        f"• Muvaffaqiyatli yuborildi: {success} ta\n"
+        f"• Xatolik (botni bloklaganlar): {fail} ta",
+        parse_mode="Markdown"
+    )
+
+    await update.message.reply_text("Admin panel:", reply_markup=get_admin_menu())
+    return ConversationHandler.END
+
+async def cancel_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bekor qilindi.", reply_markup=get_admin_menu())
+    return ConversationHandler.END
+
+
+# --- 4. TUGMALAR (INLINE) BILAN ISHLASH ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -210,15 +300,24 @@ if __name__ == '__main__':
     # Flask veb-serverni fonda ishga tushiramiz (Render port talabini qondirish uchun)
     keep_alive()
 
-    # Tokeningiz
+    # Tokeningizni bu yerga yozasiz
     TOKEN = "8569615512:AAEz4pDDF5rFL3bpw3IfuOCTDNY49jjItEI"
 
     app_bot = ApplicationBuilder().token(TOKEN).build()
 
+    # ConversationHandler (Admin xabar yuborishi uchun suhbat boshqaruvchisi)
+    conv_handler = ConversationHandler(
+        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)],
+        states={
+            BROADCAST: [MessageHandler(filters.ALL & ~filters.COMMAND, broadcast_message)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel_broadcast)]
+    )
+
     # Handlers (Ulovchilar)
     app_bot.add_handler(CommandHandler("start", start))
     app_bot.add_handler(CallbackQueryHandler(button_handler))
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app_bot.add_handler(conv_handler)
 
     print("Online Do'kon boti muvaffaqiyatli ishga tushdi...")
     app_bot.run_polling()
