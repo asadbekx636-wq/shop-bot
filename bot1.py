@@ -8,7 +8,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 # --- SOZLAMALAR VA ADMIN ID ---
 ADMIN_ID = 7161851696  # <--- O'z Telegram ID raqamingizni shu yerga yozing! (Faqat raqam)
 
-# Rassilka uchun bosqich (State)
+# Bosqichlar (States)
 BROADCAST = 1
 SEARCH = 2
 
@@ -140,15 +140,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lang = user_info[1] if user_info else 'UZ'
 
         await update.message.reply_text(
-            f"👤 **Sizning profilingiz:**\n\n"
+            f"👤 Sizning profilingiz:\n\n"
             f"• Ism: {name}\n"
-            f"• Telegram ID: `{user_id}`\n"
-            f"• Tanlangan til: {lang}",
-            parse_mode="Markdown"
+            f"• Telegram ID: {user_id}\n"
+            f"• Tanlangan til: {lang}"
         )
 
     elif text == "🔍 Qidiruv":
-        await update.message.reply_text("🔍 Qidirmoqchi bo'lgan mahsulot nomini yozib yuboring (masalan: *iPhone*):", parse_mode="Markdown")
+        await update.message.reply_text("🔍 Qidirmoqchi bo'lgan mahsulot nomini yozib yuboring (masalan: iPhone):")
         return SEARCH
 
     elif text == "🛍 Do'kon":
@@ -176,19 +175,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not items:
             await update.message.reply_text("Savatchangiz bo'sh. 📭")
         else:
-            text_msg = "🛒 **Sizning savatchangiz:**\n\n"
+            text_msg = "🛒 Sizning savatchangiz:\n\n"
             total = 0
             for item in items:
                 subtotal = item[1] * item[2]
                 total += subtotal
                 text_msg += f"• {item[0]} - {item[2]} dona x {item[1]:,.0f} so'm = {subtotal:,.0f} so'm\n"
-            text_msg += f"\n**Umumiy summa:** {total:,.0f} so'm"
+            text_msg += f"\nUmumiy summa: {total:,.0f} so'm"
 
             keyboard = [[InlineKeyboardButton("✅ Buyurtmani rasmiylashtirish", callback_data="checkout")]]
             await update.message.reply_text(
                 text_msg, 
-                reply_markup=InlineKeyboardMarkup(keyboard), 
-                parse_mode="Markdown"
+                reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
     elif text == "🔔 Bildirishnomalar":
@@ -203,10 +201,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif text == "ℹ️ Yordam / Bot haqida":
         await update.message.reply_text(
-            "ℹ️ **Bot haqida:**\n\n"
+            "ℹ️ Bot haqida:\n\n"
             "Bu onlayn do'kon boti bo'lib, xaridlaringizni qulay amalga oshirish va qidirish imkonini beradi.\n"
-            "Buyruqlar: /start, /help",
-            parse_mode="Markdown"
+            "Buyruqlar: /start, /help"
         )
 
     elif text == "📞 Bog'lanish":
@@ -225,10 +222,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
 
         await update.message.reply_text(
-            f"📊 **Bot statistikasi:**\n\n"
+            f"📊 Bot statistikasi:\n\n"
             f"👥 Jami foydalanuvchilar: {total_users} ta\n"
-            f"📦 Jami mahsulotlar: {total_products} ta",
-            parse_mode="Markdown"
+            f"📦 Jami mahsulotlar: {total_products} ta"
         )
 
     elif text == "📦 Mahsulotlar ro'yxati" and user_id == ADMIN_ID:
@@ -238,10 +234,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prods = cursor.fetchall()
         conn.close()
         
-        msg = "📦 **Do'kondagi mahsulotlar:**\n\n"
+        msg = "📦 Do'kondagi mahsulotlar:\n\n"
         for p in prods:
             msg += f"• {p[0]} — {p[1]:,.0f} so'm\n"
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text(msg)
 
     elif text == "📢 Xabar yuborish" and user_id == ADMIN_ID:
         await update.message.reply_text("Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni (rasm, video yoki matn) yuboring:")
@@ -251,7 +247,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Asosiy menyuga qaytdingiz:", reply_markup=get_main_menu(user_id))
 
     else:
-        await update.message.reply_text(f"Kechirasiz, bu buyruq tushunarsiz. Iltimos, tugmalardan foydalaning. 😊", reply_markup=get_main_menu(user_id))
+        await update.message.reply_text("Kechirasiz, bu buyruq tushunarsiz. Iltimos, tugmalardan foydalaning. 😊", reply_markup=get_main_menu(user_id))
 
     return ConversationHandler.END
 
@@ -300,10 +296,9 @@ async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             fail += 1
 
     await status_msg.edit_text(
-        f"✅ **Rassilka yakunlandi!**\n\n"
+        f"✅ Rassilka yakunlandi!\n\n"
         f"• Muvaffaqiyatli yuborildi: {success} ta\n"
-        f"• Xatolik (botni bloklaganlar): {fail} ta",
-        parse_mode="Markdown"
+        f"• Xatolik (botni bloklaganlar): {fail} ta"
     )
 
     await update.message.reply_text("Admin panel:", reply_markup=get_admin_menu())
@@ -355,12 +350,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prod = cursor.fetchone()
         conn.close()
 
-        text = f"📦 **{prod[0]}**\n\nNarxi: {prod[1]:,.0f} so'm\nTavsif: {prod[2]}"
+        text = f"📦 {prod[0]}\n\nNarxi: {prod[1]:,.0f} so'm\nTavsif: {prod[2]}"
         keyboard = [
             [InlineKeyboardButton("🛒 Savatchaga qo'shish", callback_data=f"add_{prod_id}")],
             [InlineKeyboardButton("🔙 Ortga", callback_data="back_to_cats")]
         ]
-        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif data.startswith("add_"):
         prod_id = data.split("_")[1]
@@ -395,9 +390,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.close()
             return
 
-        order_text = f"🚨 **YANGI BUYURTMA!**\n\n"
+        order_text = f"🚨 YANGI BUYURTMA!\n\n"
         order_text += f"👤 Mijoz: {user.full_name} (@{user.username if user.username else 'yo‘q'})\n"
-        order_text += f"🆔 ID: `{user.id}`\n\n"
+        order_text += f"🆔 ID: {user.id}\n\n"
         
         total = 0
         for item in items:
@@ -405,22 +400,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total += subtotal
             order_text += f"• {item[0]} — {item[2]} dona x {item[1]:,.0f} so'm = {subtotal:,.0f} so'm\n"
         
-        order_text += f"\n💰 **Umumiy summa:** {total:,.0f} so'm\n"
-        order_text += f"⏰ **Yetkazib berish vaqti:** 1 soat ichida bog'laniladi."
+        order_text += f"\n💰 Umumiy summa: {total:,.0f} so'm\n"
+        order_text += f"⏰ Yetkazib berish vaqti: 1 soat ichida bog'laniladi."
 
         cursor.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
 
         try:
-            await context.bot.send_message(chat_id=ADMIN_ID, text=order_text, parse_mode="Markdown")
+            # Adaminga xabar yuborish (Xatolik chiqmasligi uchun oddiy matn ko'rinishida)
+            await context.bot.send_message(chat_id=ADMIN_ID, text=order_text)
         except Exception as e:
             print(f"Admin uchun xabar yuborishda xatolik: {e}")
 
         await query.message.reply_text(
-            "✅ **Buyurtmangiz qabul qilindi!**\n\n"
-            "⏰ Operatorimiz belgilangan vaqt ichida (1 soat ichida) siz bilan bog'lanadi. Rahmat! 🎉",
-            parse_mode="Markdown"
+            "✅ Buyurtmangiz qabul qilindi!\n\n"
+            "⏰ Operatorimiz belgilangan vaqt ichida (1 soat ichida) siz bilan bog'lanadi. Rahmat! 🎉"
         )
     
     elif data.startswith("lang_"):
