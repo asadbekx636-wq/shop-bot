@@ -60,13 +60,11 @@ def init_db():
         )
     """)
     
-    # Dastlabki kategoriyalar va mahsulotlar (Kengaytirilgan)
+    # Dastlabki kategoriyalar va mahsulotlar
     cursor.execute("SELECT COUNT(*) FROM categories")
     if cursor.fetchone()[0] == 0:
-        # Kategoriyalar
         cursor.execute("INSERT INTO categories (name) VALUES ('📱 Telefonlar'), ('💻 Noutbuklar'), ('⌚️ Aksessuarlar'), ('👕 Kiyim-kechak')")
         
-        # Mahsulotlar
         products_list = [
             (1, 'iPhone 15 Pro', 12000000, 'Yangi holatda, 256GB, Titanium'),
             (1, 'Samsung Galaxy S24 Ultra', 11500000, 'Ajoyib kamera va tezkor protsessor'),
@@ -197,7 +195,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif text == "📢 Xabar yuborish" and user_id == ADMIN_ID:
-        await update.message.reply_text("Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni yuboring (matn, rasm yoki video):", reply_markup=get_admin_menu())
+        await update.message.reply_text("Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni (rasm, video yoki matn) yuboring:")
         return BROADCAST
 
     elif text == "🔙 Asosiy menyu":
@@ -209,7 +207,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# --- RASSILKA JARAYONI ---
+# --- RASSILKA JARAYONI (Rasm, video va matnlar uchun) ---
 async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -224,11 +222,12 @@ async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     success = 0
     fail = 0
 
-    status_msg = await update.message.reply_text("⏳ Xabar tarqatilmoqda, iltimos kuting...")
+    status_msg = await update.message.reply_text("⏳ Xabar barcha foydalanuvchilarga tarqatilmoqda...")
 
     for row in users:
         u_id = row[0]
         try:
+            # Admin yuborgan matn, rasm yoki videoni barchaga nusxalaymiz
             await update.message.copy_to(chat_id=u_id)
             success += 1
         except Exception:
@@ -330,7 +329,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             conn.close()
             return
 
-        # Buyurtma xabari matnini yig'amiz
         order_text = f"🚨 **YANGI BUYURTMA!**\n\n"
         order_text += f"👤 Mijoz: {user.full_name} (@{user.username if user.username else 'yo‘q'})\n"
         order_text += f"🆔 ID: `{user.id}`\n\n"
@@ -344,18 +342,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         order_text += f"\n💰 **Umumiy summa:** {total:,.0f} so'm\n"
         order_text += f"⏰ **Yetkazib berish vaqti:** 1 soat ichida bog'laniladi."
 
-        # Savatchani tozalaymiz
         cursor.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
         conn.commit()
         conn.close()
 
-        # Admin'ga xabar yuboramiz
         try:
             await context.bot.send_message(chat_id=ADMIN_ID, text=order_text, parse_mode="Markdown")
         except Exception as e:
             print(f"Admin uchun xabar yuborishda xatolik: {e}")
 
-        # Mijozga tasdiqlash xabarini yuboramiz
         await query.message.reply_text(
             "✅ **Buyurtmangiz qabul qilindi!**\n\n"
             "⏰ Operatorimiz belgilangan vaqt ichida (1 soat ichida) siz bilan bog'lanadi. Rahmat! 🎉",
@@ -374,6 +369,7 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)],
         states={
+            # filters.ALL yordamida rasm, video va har qanday xabarni qabul qilish ta'minlandi
             BROADCAST: [MessageHandler(filters.ALL & ~filters.COMMAND, broadcast_message)]
         },
         fallbacks=[CommandHandler("cancel", cancel_broadcast)]
