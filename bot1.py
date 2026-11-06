@@ -10,6 +10,7 @@ ADMIN_ID = 7161851696  # <--- O'z Telegram ID raqamingizni shu yerga yozing! (Fa
 
 # Rassilka uchun bosqich (State)
 BROADCAST = 1
+SEARCH = 2
 
 # --- RENDER PORT TALABINI BAJARISH UCHUN FLASK SERVER ---
 app = Flask(__name__)
@@ -27,7 +28,7 @@ def keep_alive():
     t.start()
 
 
-# --- MA'LUMOTLAR BAZASI BILAN ISHLASH (Kengaytirilgan do'kon) ---
+# --- MA'LUMOTLAR BAZASI BILAN ISHLASH ---
 def init_db():
     conn = sqlite3.connect("shop.db")
     cursor = conn.cursor()
@@ -56,11 +57,13 @@ def init_db():
     """)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY
+            user_id INTEGER PRIMARY KEY,
+            full_name TEXT,
+            language TEXT DEFAULT 'UZ'
         )
     """)
     
-    # Dastlabki kategoriyalar va mahsulotlar
+    # Dastlabki ma'lumotlar
     cursor.execute("SELECT COUNT(*) FROM categories")
     if cursor.fetchone()[0] == 0:
         cursor.execute("INSERT INTO categories (name) VALUES ('📱 Telefonlar'), ('💻 Noutbuklar'), ('⌚️ Aksessuarlar'), ('👕 Kiyim-kechak')")
@@ -87,9 +90,10 @@ init_db()
 # --- ASOSIY MENYU ---
 def get_main_menu(user_id):
     keyboard = [
+        [KeyboardButton("👤 Profilim"), KeyboardButton("🔍 Qidiruv")],
         [KeyboardButton("🛍 Do'kon"), KeyboardButton("🛒 Savatcham")],
-        [KeyboardButton("📋 Buyurtmalarim"), KeyboardButton("ℹ️ Biz haqimizda")],
-        [KeyboardButton("📞 Admin bilan bog'lanish")]
+        [KeyboardButton("🔔 Bildirishnomalar"), KeyboardButton("⚙️ Sozlamalar")],
+        [KeyboardButton("ℹ️ Yordam / Bot haqida"), KeyboardButton("📞 Bog'lanish")]
     ]
     if user_id == ADMIN_ID:
         keyboard.append([KeyboardButton("🛠 Admin Panel")])
@@ -98,7 +102,7 @@ def get_main_menu(user_id):
 def get_admin_menu():
     keyboard = [
         [KeyboardButton("👥 Statistika"), KeyboardButton("📢 Xabar yuborish")],
-        [KeyboardButton("🔙 Asosiy menyu")]
+        [KeyboardButton("📦 Mahsulotlar ro'yxati"), KeyboardButton("🔙 Asosiy menyu")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -108,12 +112,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     conn = sqlite3.connect("shop.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user.id,))
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, full_name, language) VALUES (?, ?, ?)", 
+                   (user.id, user.full_name, 'UZ'))
     conn.commit()
     conn.close()
 
     await update.message.reply_text(
-        f"Assalomu alaykum, {user.first_name}! Online Do'konimizga xush kelibsiz. 🚀\n"
+        f"Assalomu alaykum, {user.first_name}! Onlayn Do'konimizga xush kelibsiz. 🚀\n"
         "Kerakli bo'limni pastdagi tugmalar orqali tanlang:",
         reply_markup=get_main_menu(user.id)
     )
@@ -124,7 +129,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
 
-    if text == "🛍 Do'kon":
+    if text == "👤 Profilim":
+        conn = sqlite3.connect("shop.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT full_name, language FROM users WHERE user_id = ?", (user_id,))
+        user_info = cursor.fetchone()
+        conn.close()
+        
+        name = user_info[0] if user_info else update.effective_user.full_name
+        lang = user_info[1] if user_info else 'UZ'
+
+        await update.message.reply_text(
+            f"👤 **Sizning profilingiz:**\n\n"
+            f"• Ism: {name}\n"
+            f"• Telegram ID: `{user_id}`\n"
+            f"• Tanlangan til: {lang}",
+            parse_mode="Markdown"
+        )
+
+    elif text == "🔍 Qidiruv":
+        await update.message.reply_text("🔍 Qidirmoqchi bo'lgan mahsulot nomini yozib yuboring (masalan: *iPhone*):", parse_mode="Markdown")
+        return SEARCH
+
+    elif text == "🛍 Do'kon":
         conn = sqlite3.connect("shop.db")
         cursor = conn.cursor()
         cursor.execute("SELECT id, name FROM categories")
@@ -164,16 +191,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown"
             )
 
-    elif text == "📋 Buyurtmalarim":
-        await update.message.reply_text("Sizda hozircha faol buyurtmalar yo'q. 😊")
+    elif text == "🔔 Bildirishnomalar":
+        await update.message.reply_text("🔔 Hozircha sizda yangi bildirishnomalar yo'q.")
 
-    elif text == "ℹ️ Biz haqimizda":
+    elif text == "⚙️ Sozlamalar":
+        keyboard = [
+            [InlineKeyboardButton("🇺🇿 O'zbekcha", callback_data="lang_uz")],
+            [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
+        ]
+        await update.message.reply_text("⚙️ Bot tilini tanlang:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+    elif text == "ℹ️ Yordam / Bot haqida":
         await update.message.reply_text(
-            "Salom! Bu onlayn do'kon boti bo'lib, xaridlaringizni qulay amalga oshirish uchun yaratilgan. 🏢"
+            "ℹ️ **Bot haqida:**\n\n"
+            "Bu onlayn do'kon boti bo'lib, xaridlaringizni qulay amalga oshirish va qidirish imkonini beradi.\n"
+            "Buyruqlar: /start, /help",
+            parse_mode="Markdown"
         )
 
-    elif text == "📞 Admin bilan bog'lanish":
-        await update.message.reply_text("Savollar bo'yicha adaminga murojaat qiling: Tel: 9986194040")
+    elif text == "📞 Bog'lanish":
+        await update.message.reply_text("📞 Admin bilan bog'lanish uchun: Tel: 9986194040")
 
     elif text == "🛠 Admin Panel" and user_id == ADMIN_ID:
         await update.message.reply_text("Xush kelibsiz, Admin! Kerakli bo'limni tanlang:", reply_markup=get_admin_menu())
@@ -194,6 +231,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
+    elif text == "📦 Mahsulotlar ro'yxati" and user_id == ADMIN_ID:
+        conn = sqlite3.connect("shop.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, price FROM products")
+        prods = cursor.fetchall()
+        conn.close()
+        
+        msg = "📦 **Do'kondagi mahsulotlar:**\n\n"
+        for p in prods:
+            msg += f"• {p[0]} — {p[1]:,.0f} so'm\n"
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
     elif text == "📢 Xabar yuborish" and user_id == ADMIN_ID:
         await update.message.reply_text("Barcha foydalanuvchilarga yubormoqchi bo'lgan xabaringizni (rasm, video yoki matn) yuboring:")
         return BROADCAST
@@ -207,7 +256,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# --- RASSILKA JARAYONI (Rasm, video va matnlar uchun) ---
+# --- QIDIRUV JARAYONI ---
+async def search_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query_text = update.message.text
+    conn = sqlite3.connect("shop.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, price FROM products WHERE name LIKE ?", (f"%{query_text}%",))
+    products = cursor.fetchall()
+    conn.close()
+
+    if not products:
+        await update.message.reply_text("❌ Bunday nomdagi mahsulot topilmadi.", reply_markup=get_main_menu(update.effective_user.id))
+        return ConversationHandler.END
+
+    keyboard = [[InlineKeyboardButton(f"{p[1]} — {p[2]:,.0f} so'm", callback_data=f"prod_{p[0]}")] for p in products]
+    await update.message.reply_text("🔍 Qidiruv natijalari:", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ConversationHandler.END
+
+
+# --- RASSILKA JARAYONI ---
 async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -227,7 +294,6 @@ async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for row in users:
         u_id = row[0]
         try:
-            # Admin yuborgan matn, rasm yoki videoni barchaga nusxalaymiz
             await update.message.copy_to(chat_id=u_id)
             success += 1
         except Exception:
@@ -248,7 +314,7 @@ async def cancel_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 
-# --- INLINE TUGMALAR VA BUYURTMA QILISH ---
+# --- INLINE TUGMALAR ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -292,7 +358,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = f"📦 **{prod[0]}**\n\nNarxi: {prod[1]:,.0f} so'm\nTavsif: {prod[2]}"
         keyboard = [
             [InlineKeyboardButton("🛒 Savatchaga qo'shish", callback_data=f"add_{prod_id}")],
-            [InlineKeyboardButton("🔙 Ortga", callback_data=f"back_to_cat")]
+            [InlineKeyboardButton("🔙 Ortga", callback_data="back_to_cats")]
         ]
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
@@ -356,6 +422,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⏰ Operatorimiz belgilangan vaqt ichida (1 soat ichida) siz bilan bog'lanadi. Rahmat! 🎉",
             parse_mode="Markdown"
         )
+    
+    elif data.startswith("lang_"):
+        lang = data.split("_")[1].upper()
+        conn = sqlite3.connect("shop.db")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user.id))
+        conn.commit()
+        conn.close()
+        await query.message.reply_text(f"✅ Til muvaffaqiyatli o'zgartirildi: {lang}")
 
 
 # --- ASOSIY QISM ---
@@ -369,8 +444,8 @@ if __name__ == '__main__':
     conv_handler = ConversationHandler(
         entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)],
         states={
-            # filters.ALL yordamida rasm, video va har qanday xabarni qabul qilish ta'minlandi
-            BROADCAST: [MessageHandler(filters.ALL & ~filters.COMMAND, broadcast_message)]
+            BROADCAST: [MessageHandler(filters.ALL & ~filters.COMMAND, broadcast_message)],
+            SEARCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_products)]
         },
         fallbacks=[CommandHandler("cancel", cancel_broadcast)]
     )
