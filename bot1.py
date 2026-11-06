@@ -107,11 +107,13 @@ def get_admin_menu():
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
-# --- /START ---
+# --- /START FUNKSIYASI ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     conn = sqlite3.connect("shop.db")
     cursor = conn.cursor()
+    
+    # Foydalanuvchini bazaga qo'shish (Agar oldin bo'lmasa)
     cursor.execute("INSERT OR IGNORE INTO users (user_id, full_name, language) VALUES (?, ?, ?)", 
                    (user.id, user.full_name, 'UZ'))
     conn.commit()
@@ -122,6 +124,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Kerakli bo'limni pastdagi tugmalar orqali tanlang:",
         reply_markup=get_main_menu(user.id)
     )
+    return ConversationHandler.END
 
 
 # --- MATNLI XABARLARNI BOSHQARISH ---
@@ -255,6 +258,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- QIDIRUV JARAYONI ---
 async def search_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query_text = update.message.text
+    
+    # Agar qidiruv paytida boshqa menyu tugmasi bosib yuborilsa
+    if query_text in ["👤 Profilim", "🔍 Qidiruv", "🛍 Do'kon", "🛒 Savatcham", "🔔 Bildirishnomalar", "⚙️ Sozlamalar", "ℹ️ Yordam / Bot haqida", "📞 Bog'lanish", "🛠 Admin Panel"]:
+        return await handle_message(update, context)
+
     conn = sqlite3.connect("shop.db")
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, price FROM products WHERE name LIKE ?", (f"%{query_text}%",))
@@ -437,17 +445,13 @@ if __name__ == '__main__':
     app_bot = ApplicationBuilder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)],
+        entry_points=[
+            CommandHandler("start", start),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+        ],
         states={
             BROADCAST: [MessageHandler(filters.ALL & ~filters.COMMAND, broadcast_message)],
             SEARCH: [MessageHandler(filters.TEXT & ~filters.COMMAND, search_products)]
         },
         fallbacks=[CommandHandler("cancel", cancel_broadcast)]
     )
-
-    app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CallbackQueryHandler(button_handler))
-    app_bot.add_handler(conv_handler)
-
-    print("Online Do'kon boti muvaffaqiyatli ishga tushdi...")
-    app_bot.run_polling()
