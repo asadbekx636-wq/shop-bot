@@ -440,7 +440,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == '__main__':
     keep_alive()
 
-    TOKEN = "8569615512:AAEz4pDDF5rFL3bpw3IfuOCTDNY49jjItEI"
+    TOKEN = "9245489726:AAG7lnCh-IU3uTgofPDpKCTOfgoC9SBT2nc"
 
     app_bot = ApplicationBuilder().token(TOKEN).build()
 
